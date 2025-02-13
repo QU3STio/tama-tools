@@ -12,7 +12,7 @@ You will also need some basic knowledge of typescript and blockchain, specifical
 
 ### Installing
 
-You will need to setuop an environment around the snippet to include it in your code. After adding the ethers v6 or higher and wagmi to your package.json, you will want to refactor the exmples to fit your app. 
+You will need to setup an environment around the snippet to include it in your code. After adding the ethers v6 or higher and wagmi to your package.json, you will want to refactor the exmples to fit your app. 
 For example, the wagmi signature used as an example signer assumes a react frontend. If you intend use this as a backend service, you will need to incorporate your own signer.
 
 ## Testing
