@@ -20,7 +20,8 @@ This repository contains educational code examples that demonstrate how to inter
 ```
 tama-tools/
 ├── docs/                       # Documentation files
-│   └── token-creation-flow.md  # Visual guide to token creation
+│   ├── token-creation-flow.md  # Visual guide to token creation
+│   └── token-info-explained.md # Detailed explanation of token data
 │
 ├── src/                        # Source code organized by functionality
 │   ├── token-creation/         # Token creation modules
@@ -31,6 +32,8 @@ tama-tools/
 │   │
 │   ├── token-info/             # Token information modules
 │   │   ├── getTokenInfo.ts     # Functions to retrieve token data
+│   │   ├── HOW_TO_FIX_BLOCK_LIMIT_ERROR.md # Guide for fixing RPC limit errors
+│   │   ├── proposed-updates.md # Proposed code changes for solving RPC limits
 │   │   └── README.md           # Token information documentation
 │   │
 │   ├── wallet-integration/     # Wallet integration modules
@@ -41,11 +44,15 @@ tama-tools/
 │   │   ├── errorHandling.ts    # Error handling utilities
 │   │   └── README.md           # Utilities documentation
 │   │
-│   └── shared/                 # Shared resources
-│       ├── constants.ts        # Network configurations and constants
-│       ├── abi/                # Smart contract ABIs
-│       └── README.md           # Shared resources documentation
+│   ├── shared/                 # Shared resources
+│   │   ├── constants.ts        # Network configurations and constants
+│   │   ├── abi/                # Smart contract ABIs
+│   │   └── README.md           # Shared resources documentation
+│   │
+│   ├── token-find-creation-block.ts # Utility to find a token's creation block
+│   └── test-token-info-optimized.ts # Optimized token info retrieval example
 │
+├── TOKEN_INFO_TEST_README.md   # Guide for testing token info functionality
 └── README.md                   # This file
 ```
 
@@ -93,11 +100,38 @@ Check out the [token-creation-flow.md](docs/token-creation-flow.md) file for a v
 - [Token Creation Flow](docs/token-creation-flow.md) - Visual guide to the token creation process
 - [Token Information System](docs/token-info-explained.md) - Detailed explanation of token data structure
 
-## �� Testing
+## 📋 Testing
 
 All tests should be run against the [Saigon testnet](https://saigon-app.roninchain.com/) for Ronin. To understand how to connect with testnet and interact with it, see the [Ronin docs](https://support.roninchain.com/hc/en-us/articles/14035929237787-Accessing-Saigon-Testnet).
 
 The main contract for tama.meme on Saigon testnet is: `0xfbdb66ce17543b425962be05d4d44d6f0b7f1b94`
+
+## 🔍 Token Information Testing
+
+When retrieving token information, you might encounter the following error from the Ronin RPC:
+
+```
+invalid param: invalid getLogs request, cannot get more than 500 blocks
+```
+
+This happens because Ronin's RPC nodes limit event queries to a maximum of 500 blocks at a time. We've provided specialized tools to handle this limitation:
+
+1. **Token Creation Block Finder** - Efficiently finds when a token was created using binary search
+   ```bash
+   npx ts-node src/token-find-creation-block.ts
+   ```
+
+2. **Optimized Token Info Retrieval** - Uses the creation block to stay within RPC limits
+   ```bash
+   npx ts-node src/test-token-info-optimized.ts
+   ```
+
+3. **Implementation Guides**
+   - `src/token-info/HOW_TO_FIX_BLOCK_LIMIT_ERROR.md` - Step-by-step troubleshooting guide
+   - `src/token-info/proposed-updates.md` - Code implementation suggestions
+   - `TOKEN_INFO_TEST_README.md` - Comprehensive testing guide
+
+For more details on handling RPC limits when retrieving token information, see the guides above.
 
 ## ⚠️ Important Notes
 
@@ -152,6 +186,7 @@ async function createMyToken(signer: JsonRpcSigner, imageFile: File) {
 ```typescript
 import { ethers } from 'ethers';
 import { getCompleteTokenInfo } from './src/token-info/getTokenInfo';
+import { findTokenCreationBlock } from './src/token-find-creation-block';
 
 async function fetchTokenInfo() {
   // Connect to Ronin chain
@@ -161,8 +196,14 @@ async function fetchTokenInfo() {
   const tokenAddress = '0x024ac9ebfadf58b9427b97b489b33349c8313b3b';
   
   try {
+    // IMPORTANT: To avoid the "cannot get more than 500 blocks" error,
+    // find the token's creation block first
+    const creationBlock = await findTokenCreationBlock(provider, tokenAddress);
+    console.log(`Found token's creation at block ${creationBlock}`);
+    
     // Get token information including pool data and metadata
-    const tokenInfo = await getCompleteTokenInfo(provider, tokenAddress);
+    // Pass the creation block to avoid searching too many blocks
+    const tokenInfo = await getCompleteTokenInfo(provider, tokenAddress, false, creationBlock);
     
     // Display token information
     console.log(`Token: ${tokenInfo.metadata.name} (${tokenInfo.metadata.symbol})`);
@@ -178,7 +219,12 @@ async function fetchTokenInfo() {
     
     return tokenInfo;
   } catch (error) {
-    console.error("Failed to fetch token info:", error.message);
+    // Check if this is the RPC block limit error
+    if (error.message && error.message.includes('cannot get more than 500 blocks')) {
+      console.error("Hit RPC block limit. See the token info guides for solutions.");
+    } else {
+      console.error("Failed to fetch token info:", error.message);
+    }
   }
 }
 ```
