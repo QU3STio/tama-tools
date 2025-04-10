@@ -7,7 +7,7 @@
 
 import { JsonRpcSigner, ethers, Contract, Provider } from 'ethers';
 import mainContractAbi from '../shared/abi/mainContractAbi.json';
-import { NETWORK } from '../shared/constants';
+import { API, NETWORK } from '../shared/constants';
 
 /**
  * TokenPoolInfo interface defines the structure of pool information returned by the contract
@@ -246,10 +246,13 @@ export async function getCompleteTokenInfo(
   try {
     // Get pool information
     const poolInfo = await getTokenPoolInfo(provider, tokenAddress, isTestnet);
-    
-    // Get token metadata
-    const metadata = await getTokenMetadata(provider, tokenAddress, isTestnet);
-    
+
+    // Get token metadata from API
+    const metadataFromApi = await getTokenMetadataFromAPI(tokenAddress, isTestnet)
+
+    // Get token metadata from chain if the API did not return anything
+    const metadata = metadataFromApi ? metadataFromApi : await getTokenMetadata(provider, tokenAddress, isTestnet);
+
     // Format the price and market cap in a human-readable format
     const formattedPrice = ethers.formatEther(poolInfo.lastPrice);
     const formattedMarketCap = ethers.formatEther(poolInfo.lastMcapInEth);
@@ -290,4 +293,68 @@ export function formatTokenReserve(tokenReserve: bigint): string {
   return Number(ethers.formatEther(tokenReserve)).toLocaleString(undefined, {
     maximumFractionDigits: 6
   });
-} 
+}
+
+/**
+ * Gets the token MetaData using the Tama Meme API
+ *
+ * @param tokenAddress - The address of the token to query
+ * @param isTestnet - Whether to use testnet (default: false)
+ */
+export async function getTokenMetadataFromAPI(
+    tokenAddress: string,
+    isTestnet: boolean = false
+): Promise<TokenMetadata | null> {
+
+  /** Tama Meme testnet API is not publicly available */
+  if (isTestnet) {
+    return null
+  }
+
+  try {
+    // fetch response from API
+    const tamaMemeResponse = await fetch(API.BASE_URL + '/api/tokens/' + tokenAddress)
+
+    // parse to JSON
+    const metadata = (await tamaMemeResponse.json()) as {
+      name: string,
+      ticker: string,
+      description: string,
+      imageUrl: string,
+      telegramUrl: string,
+      twitterUrl: string,
+      websiteUrl: string,
+      discordUrl: string
+    }
+
+    /** Create extendedinfo Record to contain social URls etc */
+    let extendedinfo: Record<string, string> = {}
+
+    if (metadata.telegramUrl != '') {
+      extendedinfo['telegramUrl'] = metadata.telegramUrl
+    }
+
+    if (metadata.twitterUrl != '') {
+      extendedinfo['twitterUrl'] = metadata.twitterUrl
+    }
+
+    if (metadata.websiteUrl != '') {
+      extendedinfo['websiteUrl'] = metadata.websiteUrl
+    }
+
+    if (metadata.discordUrl != '') {
+      extendedinfo['discordUrl'] = metadata.discordUrl
+    }
+
+    return {
+      name: metadata.name,
+      symbol: metadata.ticker,
+      imageUrl: metadata.imageUrl,
+      description: metadata.description,
+      extended: JSON.stringify(extendedinfo),
+    }
+  } catch (error) {
+     return null
+  }
+
+}
