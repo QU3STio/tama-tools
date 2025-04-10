@@ -1,6 +1,6 @@
 # tama-tools
 
-Tools for [tama.meme](https://tama.meme) for and by the Ronin memecoin community. These are TypeScript code snippets intended to demonstrate interactions with the tama.meme ecosystem.
+Tama Tools is your gateway to building on top of tama.meme, Ronin’s first fair launch token launchpad. Create tokens, upload images, pull live data, and plug into wallet flows—all with clean, ready-to-use code. Whether you’re launching your own coin or building a product on top of Tama Meme, this is where you start. These are TypeScript code snippets intended to demonstrate interactions with the tama.meme ecosystem. We welcome contributions from the community!
 
 ## 📚 About This Repository
 
